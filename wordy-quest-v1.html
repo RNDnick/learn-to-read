@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pip's Island Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#BFE6F5;
+    --sky-bottom:#EFFAF9;
+    --meadow:#5FB86B;
+    --meadow-dark:#3E9A4C;
+    --sun:#FFC857;
+    --coral:#FF6F61;
+    --plum:#3B2F4A;
+    --card:#FFFDF7;
+    --locked:#C9C2D6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Nunito',sans-serif;
+    background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-bottom) 60%);
+    color:var(--plum);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  #app{
+    width:100%;
+    max-width:420px;
+    padding:16px 16px 100px;
+    position:relative;
+  }
+  header{
+    text-align:center;
+    padding:10px 0 6px;
+  }
+  header h1{
+    font-family:'Baloo 2',sans-serif;
+    font-size:26px;
+    font-weight:800;
+    margin:0;
+    color:var(--plum);
+  }
+  header p{
+    margin:4px 0 0;
+    font-size:13px;
+    color:var(--meadow-dark);
+    font-weight:700;
+  }
+  .stats{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    margin:10px 0 18px;
+  }
+  .pill{
+    background:var(--card);
+    border-radius:999px;
+    padding:6px 14px;
+    font-weight:800;
+    font-size:14px;
+    box-shadow:0 2px 0 rgba(59,47,74,0.1);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  #boat-float{
+    position:fixed;
+    top:14px;
+    left:14px;
+    z-index:22;
+    background:var(--card);
+    border-radius:16px;
+    padding:6px 8px 7px;
+    width:76px;
+    box-shadow:0 4px 0 rgba(59,47,74,0.12);
+    text-align:center;
+    cursor:pointer;
+    transition:width .22s ease, padding .22s ease;
+  }
+  #boat-float.expanded{
+    width:180px;
+    padding:10px 10px 10px;
+  }
+  #boat-svg-wrap{
+    width:100%;
+  }
+  #boat-svg-wrap svg{width:100%;display:block;}
+  #boat-caption{
+    font-size:10px;
+    font-weight:800;
+    color:#7A7189;
+    margin-top:3px;
+    line-height:1.25;
+  }
+  #boat-float.expanded #boat-caption{
+    font-size:12px;
+  }
+  .boat-piece-pop{
+    animation:popIn .5s ease;
+  }
+  @keyframes popIn{
+    0%{transform:scale(0.3); opacity:0;}
+    60%{transform:scale(1.15); opacity:1;}
+    100%{transform:scale(1);}
+  }
+  svg.path-bg{
+    position:absolute;
+    top:150px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:0;
+    pointer-events:none;
+  }
+  #map{
+    position:relative;
+    z-index:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:56px;
+    padding-top:10px;
+  }
+  .island-row{
+    display:flex;
+    width:100%;
+  }
+  .island-row.left{justify-content:flex-start;}
+  .island-row.right{justify-content:flex-end;}
+  .island{
+    width:88px;height:88px;
+    border-radius:50%;
+    border:none;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    cursor:pointer;
+    position:relative;
+    transition:transform .15s ease;
+    box-shadow:0 6px 0 rgba(0,0,0,0.12);
+  }
+  .island:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,0.12);}
+  .island.word{background:var(--coral);color:white;}
+  .island.math{background:var(--sun);color:var(--plum);}
+  .island.locked{background:var(--locked);color:#8a8298;cursor:default;box-shadow:0 6px 0 rgba(0,0,0,0.06);}
+  .island.done::after{
+    content:"★";
+    position:absolute;
+    top:-10px;right:-6px;
+    font-size:20px;
+    color:var(--sun);
+    -webkit-text-stroke:1.5px var(--plum);
+  }
+  .island .icon{font-size:26px;line-height:1;}
+  .island .label{font-size:11px;margin-top:2px;}
+  #pip-wrap{
+    position:fixed;
+    bottom:14px;
+    right:18px;
+    z-index:5;
+    width:74px;
+  }
+  #pip-wrap svg{width:100%;display:block;}
+  #fireworks-layer{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:25;
+    overflow:hidden;
+  }
+  .fw-particle{
+    position:absolute;
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    opacity:1;
+    animation:fw-burst 900ms ease-out forwards;
+    will-change:transform, opacity;
+  }
+  @keyframes fw-burst{
+    0%{transform:translate(0,0) scale(1); opacity:1;}
+    100%{transform:translate(var(--dx), var(--dy)) scale(0.35); opacity:0;}
+  }
+  .bounce{animation:bounce .6s ease;}
+  @keyframes bounce{
+    0%{transform:translateY(0) scale(1);}
+    30%{transform:translateY(-16px) scale(1.05);}
+    60%{transform:translateY(2px) scale(0.97);}
+    100%{transform:translateY(0) scale(1);}
+  }
+  .wiggle{animation:wiggle .5s ease;}
+  @keyframes wiggle{
+    0%,100%{transform:rotate(0deg);}
+    25%{transform:rotate(-6deg);}
+    75%{transform:rotate(6deg);}
+  }
+  #overlay{
+    position:fixed;inset:0;
+    background:rgba(59,47,74,0.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:20;
+    padding:20px;
+  }
+  #overlay.show{display:flex;}
+  #quest-card{
+    background:var(--card);
+    border-radius:24px;
+    padding:22px 20px 20px;
+    max-width:380px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 10px 0 rgba(59,47,74,0.15);
+  }
+  #quest-title{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:800;
+    font-size:18px;
+    margin:0 0 4px;
+    color:var(--meadow-dark);
+  }
+  #quest-progress{
+    font-size:12px;
+    font-weight:700;
+    color:#9186a3;
+    margin-bottom:14px;
+  }
+  #prompt-visual{
+    font-size:34px;
+    margin:8px 0;
+    letter-spacing:4px;
+  }
+  #prompt-text{
+    font-size:19px;
+    font-weight:700;
+    margin:6px 0 18px;
+    line-height:1.4;
+  }
+  #prompt-text .blank{
+    display:inline-block;
+    min-width:56px;
+    border-bottom:3px solid var(--coral);
+  }
+  .options{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .opt-btn{
+    font-family:'Nunito',sans-serif;
+    font-size:18px;
+    font-weight:800;
+    padding:12px;
+    border-radius:14px;
+    border:3px solid transparent;
+    background:#F1EEFB;
+    color:var(--plum);
+    cursor:pointer;
+    transition:transform .1s ease;
+  }
+  .opt-btn:active{transform:scale(0.97);}
+  .opt-btn.correct{background:#DFF5E1;border-color:var(--meadow);}
+  .opt-btn.wrong{background:#FCE1DE;border-color:var(--coral);}
+  #feedback{
+    min-height:22px;
+    margin-top:12px;
+    font-weight:800;
+    font-size:15px;
+  }
+  #audio-row{
+    display:flex;
+    justify-content:center;
+    margin-bottom:14px;
+  }
+  .tool-btn{
+    font-family:'Nunito',sans-serif;
+    font-weight:800;
+    font-size:14px;
+    border:2px solid #DCE7F5;
+    background:#F4F8FE;
+    color:var(--plum);
+    padding:8px 14px;
+    border-radius:12px;
+    cursor:pointer;
+  }
+  .tool-btn:active{transform:scale(0.97);}
+  #hint-zone{
+    margin-top:14px;
+    border-top:2px dashed #E5DFF0;
+    padding-top:12px;
+  }
+  .tool-btn.hint{
+    background:#FFF3D6;
+    border-color:#FFE1A0;
+    width:100%;
+  }
+  #hint-display{
+    display:none;
+    margin-top:12px;
+  }
+  #hint-display.show{display:block;}
+  .chunk-row{
+    display:flex;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:10px;
+  }
+  .chunk{
+    position:relative;
+    font-family:'Baloo 2',sans-serif;
+    font-size:22px;
+    font-weight:700;
+    padding:8px 10px;
+    border-radius:10px;
+    background:#DCEBFB;
+    color:#2B5D8C;
+  }
+  .chunk.tricky{
+    background:#FCE1EC;
+    color:var(--coral);
+  }
+  .chunk-heart{
+    position:absolute;
+    top:-10px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:13px;
+    color:var(--coral);
+  }
+  .hint-caption{
+    font-size:13px;
+    color:#7A7189;
+    font-weight:700;
+    margin-bottom:10px;
+    line-height:1.4;
+  }
+  #close-quest{
+    margin-top:14px;
+    background:none;
+    border:none;
+    color:#9186a3;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    text-decoration:underline;
+  }
+  #done-screen{
+    display:none;
+    text-align:center;
+  }
+  #done-screen.show{display:block;}
+  #piece-reveal{
+    width:90px;
+    height:90px;
+    margin:6px auto 10px;
+  }
+  #piece-reveal svg{width:100%;height:100%;}
+  #done-screen h2{
+    font-family:'Baloo 2',sans-serif;
+    color:var(--meadow-dark);
+    margin-bottom:4px;
+  }
+  #reset-btn{
+    margin-top:14px;
+    background:var(--sun);
+    border:none;
+    padding:8px 16px;
+    border-radius:12px;
+    font-weight:800;
+    font-family:'Nunito',sans-serif;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Pip's Island Quest</h1>
+    <p>Tap an island to start a quick quest!</p>
+  </header>
+  <div class="stats">
+    <div class="pill">⭐ <span id="star-count">0</span></div>
+    <div class="pill">💎 <span id="gem-count">0</span></div>
+  </div>
+  <div id="map"></div>
+</div>
+<div id="boat-float">
+  <div id="boat-svg-wrap"></div>
+  <div id="boat-caption">Find pieces to build your boat!</div>
+</div>
+<div id="pip-wrap">
+  <svg id="pip-svg" viewBox="0 0 140 140">
+    <ellipse cx="70" cy="126" rx="38" ry="8" fill="#00000022"/>
+    <!-- ears (drawn first so the fluffy head overlaps their base) -->
+    <circle cx="38" cy="34" r="15" fill="#3B2F4A"/>
+    <circle cx="102" cy="34" r="15" fill="#3B2F4A"/>
+    <circle cx="38" cy="34" r="7" fill="#5B4C6E"/>
+    <circle cx="102" cy="34" r="7" fill="#5B4C6E"/>
+    <!-- fluffy poof body: overlapping soft circles for a fuzzy silhouette -->
+    <g id="poof">
+      <circle cx="70" cy="75" r="44" fill="#FFFDF9"/>
+      <circle cx="34" cy="58" r="15" fill="#FFFDF9"/>
+      <circle cx="106" cy="58" r="15" fill="#FFFDF9"/>
+      <circle cx="28" cy="84" r="13" fill="#FFFDF9"/>
+      <circle cx="112" cy="84" r="13" fill="#FFFDF9"/>
+      <circle cx="44" cy="38" r="12" fill="#FFFDF9"/>
+      <circle cx="96" cy="38" r="12" fill="#FFFDF9"/>
+      <circle cx="42" cy="110" r="15" fill="#FFFDF9"/>
+      <circle cx="98" cy="110" r="15" fill="#FFFDF9"/>
+      <circle cx="70" cy="116" r="18" fill="#FFFDF9"/>
+    </g>
+    <!-- eye patches -->
+    <ellipse cx="52" cy="72" rx="13" ry="17" transform="rotate(-12 52 72)" fill="#3B2F4A"/>
+    <ellipse cx="88" cy="72" rx="13" ry="17" transform="rotate(12 88 72)" fill="#3B2F4A"/>
+    <circle cx="53" cy="74" r="4.2" fill="white"/>
+    <circle cx="89" cy="74" r="4.2" fill="white"/>
+    <circle cx="54" cy="75" r="2" fill="#1F1A29"/>
+    <circle cx="90" cy="75" r="2" fill="#1F1A29"/>
+    <circle cx="52.5" cy="73.3" r="0.8" fill="white"/>
+    <circle cx="88.5" cy="73.3" r="0.8" fill="white"/>
+    <!-- cheeks -->
+    <circle cx="40" cy="90" r="7" fill="#FFB6B0" opacity="0.55"/>
+    <circle cx="100" cy="90" r="7" fill="#FFB6B0" opacity="0.55"/>
+    <!-- nose + mouth -->
+    <ellipse cx="70" cy="90" rx="5" ry="3.6" fill="#3B2F4A"/>
+    <path d="M70 93 Q70 98 63 100" stroke="#3B2F4A" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M70 93 Q70 98 77 100" stroke="#3B2F4A" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <!-- paws -->
+    <circle cx="30" cy="118" r="12" fill="#3B2F4A"/>
+    <circle cx="110" cy="118" r="12" fill="#3B2F4A"/>
+  </svg>
+</div>
+<div id="fireworks-layer"></div>
+<div id="overlay">
+  <div id="quest-card">
+    <div id="quiz-view">
+      <h3 id="quest-title"></h3>
+      <div id="quest-progress"></div>
+      <div id="prompt-visual"></div>
+      <div id="prompt-text"></div>
+      <div id="audio-row">
+        <button id="read-sentence-btn" class="tool-btn">🔊 Read it to me</button>
+      </div>
+      <div class="options" id="options"></div>
+      <div id="hint-zone">
+        <button id="hint-btn" class="tool-btn hint">💡 Sound it out with me</button>
+        <div id="hint-display"></div>
+      </div>
+      <div id="feedback"></div>
+    </div>
+    <div id="done-screen">
+      <h2 id="done-title">Island cleared! 🎉</h2>
+      <div id="piece-reveal"></div>
+      <p id="done-msg"></p>
+    </div>
+    <button id="close-quest">Close</button>
+  </div>
+</div>
+<script>
+const STORAGE_KEY = "pip-quest-progress";
+// chunks: [text, isTricky] — the tricky part doesn't follow normal sound-it-out rules,
+// so it's marked with a heart to signal "know this one by heart" instead of decoding it.
+const sightWords = [
+  {word:"the", sentence:"I like ___ dog.", options:["the","jump","fish"], chunks:[["th",false],["e",true]]},
+  {word:"said", sentence:"She ___ hello to me.", options:["said","green","run"], chunks:[["s",false],["ai",true],["d",false]]},
+  {word:"went", sentence:"We ___ to the park.", options:["went","door","big"], chunks:[["w",false],["e",false],["n",false],["t",false]]},
+  {word:"have", sentence:"I ___ a red ball.", options:["have","under","yellow"], chunks:[["h",false],["a",false],["ve",true]]},
+  {word:"like", sentence:"I ___ ice cream.", options:["like","tree","hop"], chunks:[["l",false],["i",false],["ke",false]]},
+  {word:"they", sentence:"___ are my friends.", options:["They","Blue","Fast"], chunks:[["th",false],["ey",true]]},
+  {word:"was", sentence:"It ___ a sunny day.", options:["was","cup","under"], chunks:[["w",false],["as",true]]},
+  {word:"look", sentence:"___ at the stars!", options:["Look","Green","Slow"], chunks:[["l",false],["oo",true],["k",false]]},
+  {word:"come", sentence:"Please ___ here.", options:["Come","Window","Purple"], chunks:[["c",false],["o",true],["me",false]]},
+  {word:"little", sentence:"The ___ cat is sleepy.", options:["little","jump","seven"], chunks:[["li",false],["ttle",true]]},
+  {word:"good", sentence:"That was a ___ game.", options:["good","window","seven"], chunks:[["g",false],["oo",true],["d",false]]},
+  {word:"help", sentence:"Can you ___ me?", options:["help","orange","under"], chunks:[["h",false],["e",false],["l",false],["p",false]]}
+];
+function speakText(text, rate){
+  try{
+    if(!window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = rate || 0.85;
+    utter.pitch = 1.05;
+    window.speechSynthesis.speak(utter);
+  }catch(e){ /* speech not available in this environment — fail silently */ }
+}
+// --- Fireworks celebration (plays when a whole island/section is finished) ---
+// Uses plain DOM elements + CSS animations (no <canvas>, no requestAnimationFrame loop),
+// since canvas-based per-frame animation is a common cause of crashes in restrictive
+// mobile preview/WebView environments. Every part is wrapped defensively so a failure
+// here can never break the rest of the game.
+const FW_COLORS = ["#FF6F61","#FFC857","#5FB86B","#7FB8E6","#C99BE8","#FF9C90"];
+function spawnBurstDom(layer, originXvw, originYvh){
+  const count = 14;
+  for(let i=0;i<count;i++){
+    try{
+      const angle = (Math.PI*2*i)/count + Math.random()*0.3;
+      const distance = 55 + Math.random()*65;
+      const dx = Math.cos(angle)*distance;
+      const dy = Math.sin(angle)*distance + 25;
+      const el = document.createElement("span");
+      el.className = "fw-particle";
+      el.style.left = originXvw + "vw";
+      el.style.top = originYvh + "vh";
+      el.style.setProperty("--dx", dx.toFixed(1) + "px");
+      el.style.setProperty("--dy", dy.toFixed(1) + "px");
+      el.style.background = FW_COLORS[Math.floor(Math.random()*FW_COLORS.length)];
+      layer.appendChild(el);
+      setTimeout(()=>{ if(el && el.parentNode) el.parentNode.removeChild(el); }, 950);
+    }catch(e){ /* skip this particle if anything goes wrong */ }
+  }
+}
+function launchFireworks(){
+  try{
+    const layer = document.getElementById("fireworks-layer");
+    if(!layer) return;
+    const burstCount = 4;
+    for(let b=0;b<burstCount;b++){
+      setTimeout(()=>{
+        try{
+          const originX = 25 + Math.random()*50;
+          const originY = 20 + Math.random()*30;
+          spawnBurstDom(layer, originX, originY);
+        }catch(e){ /* skip this burst if anything goes wrong */ }
+      }, b*260);
+    }
+  }catch(e){ /* fireworks unavailable — game continues normally without them */ }
+}
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function makeMathQuestion(){
+  const a = Math.floor(Math.random()*7)+1;
+  const b = Math.floor(Math.random()*7)+1;
+  const sum = a+b;
+  const wrongSet = new Set([sum]);
+  while(wrongSet.size < 3){
+    const delta = Math.floor(Math.random()*4)-2;
+    const candidate = sum+delta;
+    if(candidate>0) wrongSet.add(candidate);
+  }
+  const options = shuffle([...wrongSet]);
+  const emoji = "🍎".repeat(a) + "  " + "🍊".repeat(b);
+  return {
+    visual: emoji,
+    text: a + " + " + b + " = ___",
+    answer: String(sum),
+    options: options.map(String)
+  };
+}
+const ISLANDS = [
+  {type:"word", name:"Sunny Cove"},
+  {type:"math", name:"Apple Grove"},
+  {type:"word", name:"Whisper Woods"},
+  {type:"math", name:"Pebble Bay"},
+  {type:"word", name:"Foggy Hollow"},
+  {type:"math", name:"Coral Reef"},
+  {type:"word", name:"Star Point"},
+  {type:"math", name:"Golden Peak"}
+];
+// Boat pieces are awarded in island order (index 0-7). Each piece has a "ghost"
+// (always visible, faint) silhouette and a "real" colored version shown once earned.
+const BOAT_PARTS = [
+  { key:"hull", name:"Hull",
+    ghost:'<path d="M40,140 Q40,115 70,112 L190,112 Q220,115 220,140 Q220,150 200,150 L60,150 Q40,150 40,140 Z" fill="#D8D3E0"/>',
+    real: '<path d="M40,140 Q40,115 70,112 L190,112 Q220,115 220,140 Q220,150 200,150 L60,150 Q40,150 40,140 Z" fill="#B87A4B"/>'
+  },
+  { key:"trim", name:"Deck Trim",
+    ghost:'<rect x="55" y="110" width="150" height="8" rx="4" fill="#D8D3E0"/><circle cx="85" cy="128" r="6" fill="#D8D3E0"/><circle cx="175" cy="128" r="6" fill="#D8D3E0"/>',
+    real: '<rect x="55" y="110" width="150" height="8" rx="4" fill="#E9C9A0"/><circle cx="85" cy="128" r="6" fill="#F4F0E6"/><circle cx="85" cy="128" r="3.5" fill="#7FB8E6"/><circle cx="175" cy="128" r="6" fill="#F4F0E6"/><circle cx="175" cy="128" r="3.5" fill="#7FB8E6"/>'
+  },
+  { key:"mast", name:"Mast",
+    ghost:'<rect x="127" y="30" width="6" height="82" fill="#D8D3E0"/>',
+    real: '<rect x="127" y="30" width="6" height="82" fill="#8B5E34"/>'
+  },
+  { key:"mainsail", name:"Main Sail",
+    ghost:'<path d="M133,35 L198,62 L133,98 Z" fill="#D8D3E0"/>',
+    real: '<path d="M133,35 L198,62 L133,98 Z" fill="#FFFDF7" stroke="#E5DFCF" stroke-width="1.5"/>'
+  },
+  { key:"foresail", name:"Fore Sail",
+    ghost:'<path d="M127,45 L78,75 L127,95 Z" fill="#D8D3E0"/>',
+    real: '<path d="M127,45 L78,75 L127,95 Z" fill="#FFF6E5" stroke="#E5DFCF" stroke-width="1.5"/>'
+  },
+  { key:"flag", name:"Flag",
+    ghost:'<path d="M130,20 L152,27 L130,34 Z" fill="#D8D3E0"/>',
+    real: '<path d="M130,20 L152,27 L130,34 Z" fill="#FF6F61"/>'
+  },
+  { key:"oars", name:"Oars",
+    ghost:'<rect x="10" y="132" width="34" height="6" rx="3" fill="#D8D3E0" transform="rotate(-18 10 132)"/><rect x="216" y="132" width="34" height="6" rx="3" fill="#D8D3E0" transform="rotate(18 216 132)"/>',
+    real: '<rect x="10" y="132" width="34" height="6" rx="3" fill="#8B5E34" transform="rotate(-18 10 132)"/><rect x="216" y="132" width="34" height="6" rx="3" fill="#8B5E34" transform="rotate(18 216 132)"/>'
+  },
+  { key:"treasure", name:"Treasure Chest",
+    ghost:'<rect x="158" y="98" width="26" height="14" rx="3" fill="#D8D3E0"/><path d="M158,98 Q171,88 184,98" fill="none" stroke="#D8D3E0" stroke-width="4"/>',
+    real: '<rect x="158" y="98" width="26" height="14" rx="3" fill="#8B5E34"/><path d="M158,98 Q171,88 184,98" fill="none" stroke="#8B5E34" stroke-width="4"/><circle cx="166" cy="97" r="2.4" fill="#FFC857"/><circle cx="176" cy="96" r="2.4" fill="#FFC857"/><circle cx="171" cy="99" r="2.4" fill="#FFC857"/>'
+  }
+];
+function renderBoat(completedIndices){
+  const owned = new Set(completedIndices);
+  let inner = '<path d="M20,150 Q50,142 80,150 Q110,158 140,150 Q170,142 200,150 Q220,155 240,150" fill="none" stroke="#BFE6F5" stroke-width="4" stroke-linecap="round"/>';
+  BOAT_PARTS.forEach((part, idx)=>{
+    inner += `<g>${part.ghost}</g>`;
+  });
+  BOAT_PARTS.forEach((part, idx)=>{
+    if(owned.has(idx)){
+      inner += `<g class="boat-piece-pop">${part.real}</g>`;
+    }
+  });
+  const wrap = document.getElementById("boat-svg-wrap");
+  wrap.innerHTML = `<svg viewBox="0 0 260 170" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+  const caption = document.getElementById("boat-caption");
+  const count = owned.size;
+  if(count === 0){
+    caption.textContent = "Find boat pieces!";
+  } else if(count < BOAT_PARTS.length){
+    caption.textContent = count + " of " + BOAT_PARTS.length + " pieces found";
+  } else {
+    caption.textContent = "Your boat is ready to sail! ⛵";
+  }
+}
+let progress = { unlocked: 1, completed: [], stars: 0, gems: 0 };
+const hasClaudeStorage = typeof window.storage !== "undefined" && typeof window.storage.get === "function";
+async function loadProgress(){
+  try{
+    if(hasClaudeStorage){
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if(res && res.value) progress = JSON.parse(res.value);
+    } else if(window.localStorage){
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if(raw) progress = JSON.parse(raw);
+    }
+  }catch(e){ /* no saved progress yet */ }
+  render();
+}
+async function saveProgress(){
+  try{
+    if(hasClaudeStorage){
+      await window.storage.set(STORAGE_KEY, JSON.stringify(progress), false);
+    } else if(window.localStorage){
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    }
+  }catch(e){ console.warn("save failed", e); }
+}
+const mapEl = document.getElementById("map");
+const starCountEl = document.getElementById("star-count");
+const gemCountEl = document.getElementById("gem-count");
+const pipSvg = document.getElementById("pip-svg");
+const pipWrap = document.getElementById("pip-wrap");
+function render(){
+  mapEl.innerHTML = "";
+  ISLANDS.forEach((isl, idx)=>{
+    const row = document.createElement("div");
+    row.className = "island-row " + (idx % 2 === 0 ? "left" : "right");
+    const btn = document.createElement("button");
+    const isDone = progress.completed.includes(idx);
+    const isLocked = idx+1 > progress.unlocked;
+    btn.className = "island " + (isLocked ? "locked" : isl.type) + (isDone ? " done" : "");
+    btn.innerHTML = `<span class="icon">${isl.type==="word" ? "📖" : "🔢"}</span><span class="label">${isl.name}</span>`;
+    if(!isLocked){
+      btn.addEventListener("click", ()=> openQuest(idx));
+    }
+    row.appendChild(btn);
+    mapEl.appendChild(row);
+  });
+  starCountEl.textContent = progress.stars;
+  gemCountEl.textContent = progress.gems;
+  renderBoat(progress.completed);
+}
+// Quest state
+let currentIslandIdx = null;
+let currentQuestions = [];
+let qIndex = 0;
+let correctInRow = 0;
+const overlay = document.getElementById("overlay");
+const quizView = document.getElementById("quiz-view");
+const doneScreen = document.getElementById("done-screen");
+const questTitle = document.getElementById("quest-title");
+const questProgress = document.getElementById("quest-progress");
+const promptVisual = document.getElementById("prompt-visual");
+const promptText = document.getElementById("prompt-text");
+const optionsEl = document.getElementById("options");
+const feedbackEl = document.getElementById("feedback");
+const doneMsg = document.getElementById("done-msg");
+const readSentenceBtn = document.getElementById("read-sentence-btn");
+const hintBtn = document.getElementById("hint-btn");
+const hintDisplay = document.getElementById("hint-display");
+function openQuest(idx){
+  currentIslandIdx = idx;
+  const isl = ISLANDS[idx];
+  currentQuestions = [];
+  if(isl.type === "word"){
+    const picks = shuffle(sightWords).slice(0,3);
+    picks.forEach(p=>{
+      currentQuestions.push({
+        visual: "",
+        text: p.sentence.replace("___", '<span class="blank"></span>'),
+        fullSentence: p.sentence.replace("___", p.word),
+        answer: p.word,
+        chunks: p.chunks,
+        options: shuffle(p.options)
+      });
+    });
+  } else {
+    for(let i=0;i<3;i++) currentQuestions.push(makeMathQuestion());
+  }
+  qIndex = 0;
+  correctInRow = 0;
+  quizView.style.display = "block";
+  doneScreen.classList.remove("show");
+  overlay.classList.add("show");
+  showQuestion();
+}
+function showQuestion(){
+  feedbackEl.textContent = "";
+  const isl = ISLANDS[currentIslandIdx];
+  questTitle.textContent = isl.name;
+  questProgress.textContent = "Question " + (qIndex+1) + " of " + currentQuestions.length;
+  const q = currentQuestions[qIndex];
+  promptVisual.textContent = q.visual || "";
+  promptText.innerHTML = q.text;
+  optionsEl.innerHTML = "";
+  q.options.forEach(opt=>{
+    const b = document.createElement("button");
+    b.className = "opt-btn";
+    b.textContent = opt;
+    b.addEventListener("click", ()=> checkAnswer(opt, q.answer, b));
+    optionsEl.appendChild(b);
+  });
+  const isWordQuestion = isl.type === "word";
+  document.getElementById("audio-row").style.display = isWordQuestion ? "flex" : "none";
+  document.getElementById("hint-zone").style.display = isWordQuestion ? "block" : "none";
+  hintDisplay.innerHTML = "";
+  hintDisplay.classList.remove("show");
+  hintBtn.textContent = "💡 Sound it out with me";
+  readSentenceBtn.onclick = ()=> speakText(q.fullSentence, 0.85);
+  hintBtn.onclick = ()=> showHint(q);
+}
+function showHint(q){
+  if(hintDisplay.classList.contains("show")){
+    hintDisplay.classList.remove("show");
+    hintBtn.textContent = "💡 Sound it out with me";
+    return;
+  }
+  hintDisplay.innerHTML = "";
+  const wordRow = document.createElement("div");
+  wordRow.className = "chunk-row";
+  q.chunks.forEach(([text, tricky])=>{
+    const span = document.createElement("span");
+    span.className = "chunk" + (tricky ? " tricky" : "");
+    if(tricky){
+      const heart = document.createElement("span");
+      heart.className = "chunk-heart";
+      heart.textContent = "♥";
+      span.appendChild(heart);
+    }
+    const letters = document.createElement("span");
+    letters.textContent = text;
+    span.appendChild(letters);
+    wordRow.appendChild(span);
+  });
+  hintDisplay.appendChild(wordRow);
+  const caption = document.createElement("div");
+  caption.className = "hint-caption";
+  caption.textContent = "Sound out the blue parts. The pink heart part is tricky — we just know it!";
+  hintDisplay.appendChild(caption);
+  const speakBtn = document.createElement("button");
+  speakBtn.className = "tool-btn";
+  speakBtn.textContent = "🔊 Hear the word slowly";
+  speakBtn.addEventListener("click", ()=> speakText(q.answer, 0.6));
+  hintDisplay.appendChild(speakBtn);
+  hintDisplay.classList.add("show");
+  hintBtn.textContent = "🙈 Hide hint";
+}
+function checkAnswer(chosen, answer, btnEl){
+  const allBtns = optionsEl.querySelectorAll(".opt-btn");
+  allBtns.forEach(b=>b.disabled=true);
+  const isCorrect = String(chosen).trim().toLowerCase() === String(answer).trim().toLowerCase();
+  if(isCorrect){
+    btnEl.classList.add("correct");
+    feedbackEl.textContent = ["Nice job!","You got it!","Awesome!","Great reading!"][Math.floor(Math.random()*4)];
+    feedbackEl.style.color = "#3E9A4C";
+    progress.gems += 1;
+    correctInRow += 1;
+    pipCelebrate();
+    saveProgress();
+    renderStatsOnly();
+    setTimeout(nextQuestion, 900);
+  } else {
+    btnEl.classList.add("wrong");
+    feedbackEl.textContent = "Almost! Try again.";
+    feedbackEl.style.color = "#FF6F61";
+    setTimeout(()=>{
+      btnEl.classList.remove("wrong");
+      allBtns.forEach(b=>b.disabled=false);
+      feedbackEl.textContent = "";
+    }, 800);
+  }
+}
+function renderStatsOnly(){
+  starCountEl.textContent = progress.stars;
+  gemCountEl.textContent = progress.gems;
+}
+function nextQuestion(){
+  qIndex++;
+  if(qIndex < currentQuestions.length){
+    showQuestion();
+  } else {
+    finishIsland();
+  }
+}
+const doneTitle = document.getElementById("done-title");
+const pieceReveal = document.getElementById("piece-reveal");
+function finishIsland(){
+  quizView.style.display = "none";
+  doneScreen.classList.add("show");
+  const alreadyDone = progress.completed.includes(currentIslandIdx);
+  if(!alreadyDone){
+    progress.completed.push(currentIslandIdx);
+    progress.stars += 1;
+  }
+  if(currentIslandIdx + 2 > progress.unlocked && currentIslandIdx+1 < ISLANDS.length){
+    progress.unlocked = currentIslandIdx + 2;
+  }
+  const part = BOAT_PARTS[currentIslandIdx];
+  pieceReveal.innerHTML = `<svg viewBox="0 0 260 170" xmlns="http://www.w3.org/2000/svg">${part.real}</svg>`;
+  const allDone = progress.completed.length >= BOAT_PARTS.length;
+  if(allDone){
+    doneTitle.textContent = "Your boat is complete! ⛵";
+    doneMsg.textContent = "You found the " + part.name + " and finished the whole boat! Time to sail to new waters.";
+  } else if(alreadyDone){
+    doneTitle.textContent = "Island cleared again! 🎉";
+    doneMsg.textContent = "You earned " + correctInRow + " gems replaying " + ISLANDS[currentIslandIdx].name + ".";
+  } else {
+    doneTitle.textContent = "You found a boat piece! 🎉";
+    doneMsg.textContent = "The " + part.name + " is now on your boat! " + correctInRow + " gems earned on " + ISLANDS[currentIslandIdx].name + ".";
+  }
+  saveProgress();
+  render();
+  pipCelebrate();
+  launchFireworks();
+  if(allDone){
+    setTimeout(launchFireworks, 350);
+    setTimeout(launchFireworks, 700);
+  }
+}
+function pipCelebrate(){
+  pipSvg.parentElement.classList.remove("bounce");
+  void pipSvg.parentElement.offsetWidth;
+  pipSvg.parentElement.classList.add("bounce");
+}
+document.getElementById("close-quest").addEventListener("click", ()=>{
+  overlay.classList.remove("show");
+});
+pipWrap.addEventListener("click", ()=>{
+  pipWrap.classList.remove("wiggle");
+  void pipWrap.offsetWidth;
+  pipWrap.classList.add("wiggle");
+});
+const boatFloat = document.getElementById("boat-float");
+boatFloat.addEventListener("click", ()=>{
+  boatFloat.classList.toggle("expanded");
+});
+loadProgress();
+</script>
+</body>
+</html>
+
