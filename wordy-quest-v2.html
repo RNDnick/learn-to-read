@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pip's Island Quest — v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#BFE6F5;
+    --sky-bottom:#EFFAF9;
+    --meadow:#5FB86B;
+    --meadow-dark:#3E9A4C;
+    --sun:#FFC857;
+    --coral:#FF6F61;
+    --plum:#3B2F4A;
+    --card:#FFFDF7;
+    --locked:#C9C2D6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Nunito',sans-serif;
+    background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-bottom) 60%);
+    color:var(--plum);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  #app{
+    width:100%;
+    max-width:420px;
+    padding:16px 16px 100px;
+    position:relative;
+  }
+  header{
+    text-align:center;
+    padding:10px 0 6px;
+  }
+  header h1{
+    font-family:'Baloo 2',sans-serif;
+    font-size:26px;
+    font-weight:800;
+    margin:0;
+    color:var(--plum);
+  }
+  header p{
+    margin:4px 0 0;
+    font-size:13px;
+    color:var(--meadow-dark);
+    font-weight:700;
+  }
+  .stats{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    margin:10px 0 18px;
+  }
+  .pill{
+    background:var(--card);
+    border-radius:999px;
+    padding:6px 14px;
+    font-weight:800;
+    font-size:14px;
+    box-shadow:0 2px 0 rgba(59,47,74,0.1);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  svg.path-bg{
+    position:absolute;
+    top:150px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:0;
+    pointer-events:none;
+  }
+  #map{
+    position:relative;
+    z-index:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:56px;
+    padding-top:10px;
+  }
+  .island-row{
+    display:flex;
+    width:100%;
+  }
+  .island-row.left{justify-content:flex-start;}
+  .island-row.right{justify-content:flex-end;}
+  .island{
+    width:88px;height:88px;
+    border-radius:50%;
+    border:none;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    cursor:pointer;
+    position:relative;
+    transition:transform .15s ease;
+    box-shadow:0 6px 0 rgba(0,0,0,0.12);
+  }
+  .island:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,0.12);}
+  .island.word{background:var(--coral);color:white;}
+  .island.math{background:var(--sun);color:var(--plum);}
+  .island.locked{background:var(--locked);color:#8a8298;cursor:default;box-shadow:0 6px 0 rgba(0,0,0,0.06);}
+  .island.done::after{
+    content:"★";
+    position:absolute;
+    top:-10px;right:-6px;
+    font-size:20px;
+    color:var(--sun);
+    -webkit-text-stroke:1.5px var(--plum);
+  }
+  .island .icon{font-size:26px;line-height:1;}
+  .island .label{font-size:11px;margin-top:2px;}
+  #pip-wrap{
+    position:fixed;
+    bottom:14px;
+    right:18px;
+    z-index:5;
+    width:74px;
+  }
+  #pip-wrap svg{width:100%;display:block;}
+  .bounce{animation:bounce .6s ease;}
+  @keyframes bounce{
+    0%{transform:translateY(0) scale(1);}
+    30%{transform:translateY(-16px) scale(1.05);}
+    60%{transform:translateY(2px) scale(0.97);}
+    100%{transform:translateY(0) scale(1);}
+  }
+  .wiggle{animation:wiggle .5s ease;}
+  @keyframes wiggle{
+    0%,100%{transform:rotate(0deg);}
+    25%{transform:rotate(-6deg);}
+    75%{transform:rotate(6deg);}
+  }
+  #overlay{
+    position:fixed;inset:0;
+    background:rgba(59,47,74,0.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:20;
+    padding:20px;
+  }
+  #overlay.show{display:flex;}
+  #quest-card{
+    background:var(--card);
+    border-radius:24px;
+    padding:22px 20px 20px;
+    max-width:380px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 10px 0 rgba(59,47,74,0.15);
+  }
+  #quest-title{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:800;
+    font-size:18px;
+    margin:0 0 4px;
+    color:var(--meadow-dark);
+  }
+  #quest-progress{
+    font-size:12px;
+    font-weight:700;
+    color:#9186a3;
+    margin-bottom:14px;
+  }
+  #prompt-visual{
+    font-size:34px;
+    margin:8px 0;
+    letter-spacing:4px;
+  }
+  #prompt-text{
+    font-size:19px;
+    font-weight:700;
+    margin:6px 0 18px;
+    line-height:1.4;
+  }
+  #prompt-text .blank{
+    display:inline-block;
+    min-width:56px;
+    border-bottom:3px solid var(--coral);
+  }
+  .options{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .opt-btn{
+    font-family:'Nunito',sans-serif;
+    font-size:18px;
+    font-weight:800;
+    padding:12px;
+    border-radius:14px;
+    border:3px solid transparent;
+    background:#F1EEFB;
+    color:var(--plum);
+    cursor:pointer;
+    transition:transform .1s ease;
+  }
+  .opt-btn:active{transform:scale(0.97);}
+  .opt-btn.correct{background:#DFF5E1;border-color:var(--meadow);}
+  .opt-btn.wrong{background:#FCE1DE;border-color:var(--coral);}
+  #feedback{
+    min-height:22px;
+    margin-top:12px;
+    font-weight:800;
+    font-size:15px;
+  }
+  #close-quest{
+    margin-top:14px;
+    background:none;
+    border:none;
+    color:#9186a3;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    text-decoration:underline;
+  }
+  #done-screen{
+    display:none;
+    text-align:center;
+  }
+  #done-screen.show{display:block;}
+  #done-screen h2{
+    font-family:'Baloo 2',sans-serif;
+    color:var(--meadow-dark);
+    margin-bottom:4px;
+  }
+  #reset-btn{
+    margin-top:14px;
+    background:var(--sun);
+    border:none;
+    padding:8px 16px;
+    border-radius:12px;
+    font-weight:800;
+    font-family:'Nunito',sans-serif;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Pip's Island Quest</h1>
+    <p>Tap an island to start a quick quest!</p>
+  </header>
+  <div class="stats">
+    <div class="pill">⭐ <span id="star-count">0</span></div>
+    <div class="pill">💎 <span id="gem-count">0</span></div>
+  </div>
+  <div id="map"></div>
+</div>
+<div id="pip-wrap">
+  <svg id="pip-svg" viewBox="0 0 120 120">
+    <ellipse cx="60" cy="100" rx="34" ry="8" fill="#00000022"/>
+    <path d="M60 20 C30 20 18 45 22 68 C25 88 42 100 60 100 C78 100 95 88 98 68 C102 45 90 20 60 20 Z" fill="#FF6F61"/>
+    <path d="M30 32 L18 8 L44 26 Z" fill="#FF6F61"/>
+    <path d="M90 32 L102 8 L76 26 Z" fill="#FF6F61"/>
+    <path d="M32 34 L23 16 L42 28 Z" fill="#FFC857"/>
+    <path d="M88 34 L97 16 L78 28 Z" fill="#FFC857"/>
+    <circle cx="46" cy="58" r="6" fill="#3B2F4A"/>
+    <circle cx="74" cy="58" r="6" fill="#3B2F4A"/>
+    <circle cx="48" cy="56" r="1.6" fill="white"/>
+    <circle cx="76" cy="56" r="1.6" fill="white"/>
+    <path d="M50 72 Q60 80 70 72" stroke="#3B2F4A" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <circle cx="34" cy="68" r="6" fill="#FF9C90" opacity="0.7"/>
+    <circle cx="86" cy="68" r="6" fill="#FF9C90" opacity="0.7"/>
+  </svg>
+</div>
+<div id="overlay">
+  <div id="quest-card">
+    <div id="quiz-view">
+      <h3 id="quest-title"></h3>
+      <div id="quest-progress"></div>
+      <div id="prompt-visual"></div>
+      <div id="prompt-text"></div>
+      <div class="options" id="options"></div>
+      <div id="feedback"></div>
+    </div>
+    <div id="done-screen">
+      <h2>Island cleared! 🎉</h2>
+      <p id="done-msg"></p>
+    </div>
+    <button id="close-quest">Close</button>
+  </div>
+</div>
+<script>
+const STORAGE_KEY = "pip-quest-progress";
+const sightWords = [
+  {word:"the", sentence:"I like ___ dog.", options:["the","jump","fish"]},
+  {word:"said", sentence:"She ___ hello to me.", options:["said","green","run"]},
+  {word:"went", sentence:"We ___ to the park.", options:["went","door","big"]},
+  {word:"have", sentence:"I ___ a red ball.", options:["have","see","cold"]},
+  {word:"like", sentence:"I ___ ice cream.", options:["like","tree","hop"]},
+  {word:"they", sentence:"___ are my friends.", options:["They","Blue","Fast"]},
+  {word:"was", sentence:"It ___ a sunny day.", options:["was","cup","under"]},
+  {word:"look", sentence:"___ at the stars!", options:["Look","Green","Slow"]},
+  {word:"come", sentence:"Please ___ here.", options:["Come","Yellow","Jump"]},
+  {word:"little", sentence:"The ___ cat is sleepy.", options:["little","purple","swim"]},
+  {word:"good", sentence:"That was a ___ game.", options:["good","window","seven"]},
+  {word:"help", sentence:"Can you ___ me?", options:["help","orange","under"]}
+];
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function makeMathQuestion(){
+  const a = Math.floor(Math.random()*7)+1;
+  const b = Math.floor(Math.random()*7)+1;
+  const sum = a+b;
+  const wrongSet = new Set([sum]);
+  while(wrongSet.size < 3){
+    const delta = Math.floor(Math.random()*4)-2;
+    const candidate = sum+delta;
+    if(candidate>0) wrongSet.add(candidate);
+  }
+  const options = shuffle([...wrongSet]);
+  const emoji = "🍎".repeat(a) + "  " + "🍊".repeat(b);
+  return {
+    visual: emoji,
+    text: a + " + " + b + " = ___",
+    answer: String(sum),
+    options: options.map(String)
+  };
+}
+const ISLANDS = [
+  {type:"word", name:"Sunny Cove"},
+  {type:"math", name:"Apple Grove"},
+  {type:"word", name:"Whisper Woods"},
+  {type:"math", name:"Pebble Bay"},
+  {type:"word", name:"Foggy Hollow"},
+  {type:"math", name:"Coral Reef"},
+  {type:"word", name:"Star Point"},
+  {type:"math", name:"Golden Peak"}
+];
+let progress = { unlocked: 1, completed: [], stars: 0, gems: 0 };
+async function loadProgress(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value){
+      progress = JSON.parse(res.value);
+    }
+  }catch(e){ /* no saved progress yet */ }
+  render();
+}
+async function saveProgress(){
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(progress), false);
+  }catch(e){ console.warn("save failed", e); }
+}
+const mapEl = document.getElementById("map");
+const starCountEl = document.getElementById("star-count");
+const gemCountEl = document.getElementById("gem-count");
+const pipSvg = document.getElementById("pip-svg");
+const pipWrap = document.getElementById("pip-wrap");
+function render(){
+  mapEl.innerHTML = "";
+  ISLANDS.forEach((isl, idx)=>{
+    const row = document.createElement("div");
+    row.className = "island-row " + (idx % 2 === 0 ? "left" : "right");
+    const btn = document.createElement("button");
+    const isDone = progress.completed.includes(idx);
+    const isLocked = idx+1 > progress.unlocked;
+    btn.className = "island " + (isLocked ? "locked" : isl.type) + (isDone ? " done" : "");
+    btn.innerHTML = `<span class="icon">${isl.type==="word" ? "📖" : "🔢"}</span><span class="label">${isl.name}</span>`;
+    if(!isLocked){
+      btn.addEventListener("click", ()=> openQuest(idx));
+    }
+    row.appendChild(btn);
+    mapEl.appendChild(row);
+  });
+  starCountEl.textContent = progress.stars;
+  gemCountEl.textContent = progress.gems;
+}
+// Quest state
+let currentIslandIdx = null;
+let currentQuestions = [];
+let qIndex = 0;
+let correctInRow = 0;
+const overlay = document.getElementById("overlay");
+const quizView = document.getElementById("quiz-view");
+const doneScreen = document.getElementById("done-screen");
+const questTitle = document.getElementById("quest-title");
+const questProgress = document.getElementById("quest-progress");
+const promptVisual = document.getElementById("prompt-visual");
+const promptText = document.getElementById("prompt-text");
+const optionsEl = document.getElementById("options");
+const feedbackEl = document.getElementById("feedback");
+const doneMsg = document.getElementById("done-msg");
+function openQuest(idx){
+  currentIslandIdx = idx;
+  const isl = ISLANDS[idx];
+  currentQuestions = [];
+  if(isl.type === "word"){
+    const picks = shuffle(sightWords).slice(0,3);
+    picks.forEach(p=>{
+      currentQuestions.push({
+        visual: "",
+        text: p.sentence.replace("___", '<span class="blank"></span>'),
+        answer: p.word,
+        options: shuffle(p.options)
+      });
+    });
+  } else {
+    for(let i=0;i<3;i++) currentQuestions.push(makeMathQuestion());
+  }
+  qIndex = 0;
+  correctInRow = 0;
+  quizView.style.display = "block";
+  doneScreen.classList.remove("show");
+  overlay.classList.add("show");
+  showQuestion();
+}
+function showQuestion(){
+  feedbackEl.textContent = "";
+  const isl = ISLANDS[currentIslandIdx];
+  questTitle.textContent = isl.name;
+  questProgress.textContent = "Question " + (qIndex+1) + " of " + currentQuestions.length;
+  const q = currentQuestions[qIndex];
+  promptVisual.textContent = q.visual || "";
+  promptText.innerHTML = q.text;
+  optionsEl.innerHTML = "";
+  q.options.forEach(opt=>{
+    const b = document.createElement("button");
+    b.className = "opt-btn";
+    b.textContent = opt;
+    b.addEventListener("click", ()=> checkAnswer(opt, q.answer, b));
+    optionsEl.appendChild(b);
+  });
+}
+function checkAnswer(chosen, answer, btnEl){
+  const allBtns = optionsEl.querySelectorAll(".opt-btn");
+  allBtns.forEach(b=>b.disabled=true);
+  const isCorrect = String(chosen).trim().toLowerCase() === String(answer).trim().toLowerCase();
+  if(isCorrect){
+    btnEl.classList.add("correct");
+    feedbackEl.textContent = ["Nice job!","You got it!","Awesome!","Great reading!"][Math.floor(Math.random()*4)];
+    feedbackEl.style.color = "#3E9A4C";
+    progress.gems += 1;
+    correctInRow += 1;
+    pipCelebrate();
+    saveProgress();
+    renderStatsOnly();
+    setTimeout(nextQuestion, 900);
+  } else {
+    btnEl.classList.add("wrong");
+    feedbackEl.textContent = "Almost! Try again.";
+    feedbackEl.style.color = "#FF6F61";
+    setTimeout(()=>{
+      btnEl.classList.remove("wrong");
+      allBtns.forEach(b=>b.disabled=false);
+      feedbackEl.textContent = "";
+    }, 800);
+  }
+}
+function renderStatsOnly(){
+  starCountEl.textContent = progress.stars;
+  gemCountEl.textContent = progress.gems;
+}
+function nextQuestion(){
+  qIndex++;
+  if(qIndex < currentQuestions.length){
+    showQuestion();
+  } else {
+    finishIsland();
+  }
+}
+function finishIsland(){
+  quizView.style.display = "none";
+  doneScreen.classList.add("show");
+  if(!progress.completed.includes(currentIslandIdx)){
+    progress.completed.push(currentIslandIdx);
+    progress.stars += 1;
+  }
+  if(currentIslandIdx + 2 > progress.unlocked && currentIslandIdx+1 < ISLANDS.length){
+    progress.unlocked = currentIslandIdx + 2;
+  }
+  doneMsg.textContent = "You earned a star and " + correctInRow + " gems on " + ISLANDS[currentIslandIdx].name + "!";
+  saveProgress();
+  render();
+  pipCelebrate();
+}
+function pipCelebrate(){
+  pipSvg.parentElement.classList.remove("bounce");
+  void pipSvg.parentElement.offsetWidth;
+  pipSvg.parentElement.classList.add("bounce");
+}
+document.getElementById("close-quest").addEventListener("click", ()=>{
+  overlay.classList.remove("show");
+});
+pipWrap.addEventListener("click", ()=>{
+  pipWrap.classList.remove("wiggle");
+  void pipWrap.offsetWidth;
+  pipWrap.classList.add("wiggle");
+});
+loadProgress();
+</script>
+</body>
+</html>
+
