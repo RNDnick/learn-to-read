@@ -1,0 +1,38 @@
+name: Sync index.html to latest version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wordy-quest-v*.html'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy highest-numbered version to index.html
+        id: sync
+        run: |
+          latest_file=$(ls wordy-quest-v*.html | sed -E 's/wordy-quest-v([0-9]+)\.html/\1 &/' | sort -n | tail -1 | awk '{print $2}')
+          echo "Latest version file: $latest_file"
+          cp "$latest_file" index.html
+          echo "latest_file=$latest_file" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push if index.html changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "index.html already matches ${{ steps.sync.outputs.latest_file }} — nothing to commit."
+          else
+            git commit -m "Auto-sync index.html to ${{ steps.sync.outputs.latest_file }}"
+            git push
+          fi
+
