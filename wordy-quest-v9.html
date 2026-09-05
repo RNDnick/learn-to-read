@@ -377,78 +377,6 @@
     cursor:pointer;
     text-decoration:underline;
   }
-  #match-view h3{
-    font-family:'Baloo 2',sans-serif;
-    font-weight:800;
-    font-size:18px;
-    margin:0 0 4px;
-    color:var(--meadow-dark);
-  }
-  #match-progress{
-    font-size:12px;
-    font-weight:700;
-    color:#9186a3;
-    margin-bottom:14px;
-  }
-  #match-grid{
-    display:grid;
-    grid-template-columns:repeat(2,1fr);
-    gap:10px;
-    margin-bottom:8px;
-  }
-  .match-card{
-    perspective:600px;
-    min-height:76px;
-    cursor:pointer;
-  }
-  .match-card-inner{
-    position:relative;
-    width:100%;
-    min-height:76px;
-    transition:transform .4s ease;
-    transform-style:preserve-3d;
-  }
-  .match-card.flipped .match-card-inner{transform:rotateY(180deg);}
-  .match-card-face{
-    position:absolute;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    text-align:center;
-    padding:6px;
-    border-radius:14px;
-    backface-visibility:hidden;
-    font-family:'Nunito',sans-serif;
-    font-weight:800;
-    font-size:13px;
-    line-height:1.3;
-  }
-  .match-card-back{
-    background:#F1EEFB;
-    color:#9186a3;
-    font-size:24px;
-  }
-  .match-card-front{
-    background:#DFF5E1;
-    border:2px solid var(--meadow);
-    color:var(--plum);
-    transform:rotateY(180deg);
-  }
-  .match-card.matched .match-card-front{
-    background:#FFF3D6;
-    border-color:var(--sun);
-  }
-  .match-card.wrong .match-card-inner{
-    animation:wiggle .4s ease;
-  }
-  #match-feedback{
-    min-height:20px;
-    margin-top:4px;
-    font-weight:800;
-    font-size:15px;
-    color:#3E9A4C;
-  }
   #done-screen{
     display:none;
     text-align:center;
@@ -563,12 +491,6 @@
         <div id="hint-display"></div>
       </div>
       <div id="feedback"></div>
-    </div>
-    <div id="match-view" style="display:none;">
-      <h3 id="match-title"></h3>
-      <div id="match-progress"></div>
-      <div id="match-grid"></div>
-      <div id="match-feedback"></div>
     </div>
     <div id="done-screen">
       <h2 id="done-title">Island cleared! 🎉</h2>
@@ -861,7 +783,6 @@ let correctInRow = 0;
 
 const overlay = document.getElementById("overlay");
 const quizView = document.getElementById("quiz-view");
-const matchView = document.getElementById("match-view");
 const doneScreen = document.getElementById("done-screen");
 const questTitle = document.getElementById("quest-title");
 const questProgress = document.getElementById("quest-progress");
@@ -875,10 +796,6 @@ const hintBtn = document.getElementById("hint-btn");
 const hintDisplay = document.getElementById("hint-display");
 
 function openQuest(idx){
-  if(Math.random() < 1/3){
-    openMatchRound(idx);
-    return;
-  }
   currentIslandIdx = idx;
   const isl = ISLANDS[idx];
   currentQuestions = [];
@@ -900,130 +817,9 @@ function openQuest(idx){
   qIndex = 0;
   correctInRow = 0;
   quizView.style.display = "block";
-  matchView.style.display = "none";
   doneScreen.classList.remove("show");
   overlay.classList.add("show");
   showQuestion();
-}
-
-// --- Memory Match round: an alternate quiz format that occasionally replaces the
-// standard 3-question multiple-choice round (see openQuest), drawing from the same
-// sightWords/makeMathQuestion content so no new content needs curating. Flips use
-// plain CSS 3D transforms (rotateY + backface-visibility), no rAF loop, consistent
-// with the canvas/rAF ban noted in CLAUDE.md.
-const matchTitleEl = document.getElementById("match-title");
-const matchProgressEl = document.getElementById("match-progress");
-const matchGridEl = document.getElementById("match-grid");
-const matchFeedbackEl = document.getElementById("match-feedback");
-
-let matchCards = [];
-let matchFirstPick = null;
-let matchLock = false;
-let matchFoundPairs = 0;
-let matchPairTotal = 3;
-
-function buildMatchPairs(isl){
-  const pairs = [];
-  if(isl.type === "word"){
-    const picks = shuffle(sightWords).slice(0, matchPairTotal);
-    picks.forEach((p, i)=>{
-      pairs.push({key:"m"+i, label:p.sentence});
-      pairs.push({key:"m"+i, label:p.word});
-    });
-  } else {
-    // Sums must be unique across the round — two equations that both total, say, 9
-    // would put two identical-looking answer cards on the board that aren't actually
-    // interchangeable, which would look like a bug to a child tapping the "wrong" 9.
-    const usedSums = new Set();
-    for(let i=0;i<matchPairTotal;i++){
-      let q;
-      do{ q = makeMathQuestion(); }while(usedSums.has(q.answer));
-      usedSums.add(q.answer);
-      pairs.push({key:"m"+i, label:q.text.split("=")[0].trim()});
-      pairs.push({key:"m"+i, label:q.answer});
-    }
-  }
-  return shuffle(pairs.map(p=>({...p, matched:false})));
-}
-
-function openMatchRound(idx){
-  currentIslandIdx = idx;
-  const isl = ISLANDS[idx];
-  matchCards = buildMatchPairs(isl);
-  matchFirstPick = null;
-  matchLock = false;
-  matchFoundPairs = 0;
-  correctInRow = 0;
-  quizView.style.display = "none";
-  matchView.style.display = "block";
-  doneScreen.classList.remove("show");
-  overlay.classList.add("show");
-  matchTitleEl.textContent = isl.name;
-  matchFeedbackEl.textContent = "";
-  renderMatchGrid();
-}
-
-function renderMatchGrid(){
-  matchProgressEl.textContent = matchFoundPairs + " of " + matchPairTotal + " pairs found — tap two cards!";
-  matchGridEl.innerHTML = "";
-  matchCards.forEach((card, i)=>{
-    const el = document.createElement("div");
-    el.className = "match-card" + (card.matched ? " flipped matched" : "");
-    el.innerHTML = '<div class="match-card-inner">' +
-      '<div class="match-card-face match-card-back">❓</div>' +
-      '<div class="match-card-face match-card-front"></div>' +
-      '</div>';
-    el.querySelector(".match-card-front").textContent = card.label;
-    if(!card.matched){
-      el.addEventListener("click", ()=> flipMatchCard(i, el));
-    }
-    matchGridEl.appendChild(el);
-  });
-}
-
-function flipMatchCard(i, el){
-  if(matchLock || el.classList.contains("flipped")) return;
-  el.classList.add("flipped");
-
-  if(matchFirstPick === null){
-    matchFirstPick = {i, el};
-    return;
-  }
-
-  const first = matchFirstPick;
-  matchFirstPick = null;
-  if(first.i === i) return;
-
-  const a = matchCards[first.i];
-  const b = matchCards[i];
-  if(a.key === b.key){
-    a.matched = true;
-    b.matched = true;
-    first.el.classList.add("matched");
-    el.classList.add("matched");
-    matchFoundPairs += 1;
-    progress.gems += 1;
-    correctInRow += 1;
-    pipCelebrate();
-    saveProgress();
-    renderStatsOnly();
-    matchFeedbackEl.textContent = ["Nice match!","Great memory!","Got it!"][Math.floor(Math.random()*3)];
-    matchProgressEl.textContent = matchFoundPairs + " of " + matchPairTotal + " pairs found — tap two cards!";
-    if(matchFoundPairs >= matchPairTotal){
-      setTimeout(finishIsland, 600);
-    } else {
-      setTimeout(()=>{ matchFeedbackEl.textContent = ""; }, 900);
-    }
-  } else {
-    matchLock = true;
-    first.el.classList.add("wrong");
-    el.classList.add("wrong");
-    setTimeout(()=>{
-      first.el.classList.remove("flipped","wrong");
-      el.classList.remove("flipped","wrong");
-      matchLock = false;
-    }, 800);
-  }
 }
 
 function showQuestion(){
@@ -1144,7 +940,6 @@ const pieceReveal = document.getElementById("piece-reveal");
 
 function finishIsland(){
   quizView.style.display = "none";
-  matchView.style.display = "none";
   doneScreen.classList.add("show");
   const alreadyDone = progress.completed.includes(currentIslandIdx);
   if(!alreadyDone){
